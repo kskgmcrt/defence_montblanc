@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>モンブランをまもれ！むき栗ディフェンス</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Yomogi&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#FDE6BE;
+    --sky-bottom:#F3B36B;
+    --cream:#FFF6E9;
+    --cream-white:#FFFDF8;
+    --cream-dark:#F0DFC0;
+    --marron:#8B5E3C;
+    --marron-dark:#5C3A21;
+    --marron-light:#B4835B;
+    --maple:#C1440E;
+    --pumpkin:#E8871E;
+    --moss:#6B8E4E;
+    --ink:#4A2E1A;
+    color-scheme: light;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    height:100%;
+    margin:0;
+    overflow:hidden;
+    background: var(--sky-bottom);
+    font-family:'M PLUS Rounded 1c', sans-serif;
+    color: var(--ink);
+  }
+  #app{
+    position:fixed; inset:0;
+    padding-top: env(safe-area-inset-top,0px);
+    padding-bottom: env(safe-area-inset-bottom,0px);
+  }
+  #game-canvas{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    display:block;
+    touch-action:none;
+    background: linear-gradient(to bottom, var(--sky-top) 0%, var(--sky-bottom) 70%);
+  }
+  #ui-layer{
+    position:absolute; inset:0;
+    pointer-events:none;
+  }
+  #ui-layer button, #ui-layer .clickable{ pointer-events:auto; }
+
+  /* ---------- HUD ---------- */
+  #hud{
+    position:absolute;
+    top: calc(env(safe-area-inset-top,0px) + 14px);
+    left:0; right:0;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    padding: 0 16px;
+  }
+  #hud.hidden{ display:none; }
+  #hp-row{
+    display:flex; gap:4px;
+    background: rgba(255,253,248,0.82);
+    padding:8px 12px;
+    border-radius:999px;
+    box-shadow: 0 3px 0 rgba(92,58,33,0.15);
+    font-size:1.25rem;
+    line-height:1;
+  }
+  .heart{ filter: none; }
+  .heart.lost{ filter: grayscale(1) opacity(0.35); }
+  #score-wave{
+    display:flex; flex-direction:column; align-items:flex-end; gap:6px;
+  }
+  #score, #wave{
+    background: rgba(255,253,248,0.82);
+    padding:6px 14px;
+    border-radius:999px;
+    font-weight:700;
+    font-size:0.95rem;
+    box-shadow: 0 3px 0 rgba(92,58,33,0.15);
+    white-space:nowrap;
+  }
+  #wave{ color: var(--maple); }
+
+  #hint{
+    position:absolute;
+    bottom: calc(env(safe-area-inset-bottom,0px) + 26px);
+    left:50%; transform:translateX(-50%);
+    background: rgba(74,46,26,0.78);
+    color:#fff;
+    padding:9px 18px;
+    border-radius:999px;
+    font-size:0.9rem;
+    font-weight:700;
+    letter-spacing:0.02em;
+    transition: opacity 0.6s ease;
+  }
+  #hint.hidden{ opacity:0; pointer-events:none; }
+
+  #wave-banner{
+    position:absolute;
+    top:38%; left:50%;
+    transform: translate(-50%,-50%) scale(0.7);
+    font-family:'Yomogi', cursive;
+    font-size: 2.6rem;
+    color:#fff;
+    text-shadow: 0 3px 0 var(--marron-dark), 0 0 18px rgba(0,0,0,0.25);
+    opacity:0;
+    transition: opacity 0.35s ease, transform 0.35s ease;
+    pointer-events:none;
+  }
+  #wave-banner.show{
+    opacity:1;
+    transform: translate(-50%,-50%) scale(1);
+  }
+
+  /* ---------- Panels (title / game over) ---------- */
+  .panel{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    padding: 24px;
+  }
+  .panel.hidden{ display:none; }
+  .plate{
+    position:relative;
+    pointer-events:auto;
+    background: var(--cream-white);
+    border-radius: 28px;
+    padding: 44px 34px 34px;
+    max-width: 420px;
+    width:100%;
+    text-align:center;
+    box-shadow: 0 18px 0 -6px rgba(92,58,33,0.18), 0 20px 40px rgba(74,46,26,0.28);
+  }
+  .plate::before, .plate::after{
+    content:"";
+    position:absolute;
+    left:10px; right:10px;
+    height:22px;
+    background-image: radial-gradient(circle at 11px 11px, transparent 10px, var(--cream-white) 11px);
+    background-size: 22px 22px;
+    background-repeat: repeat-x;
+  }
+  .plate::before{ top:-11px; background-position: 0 0; }
+  .plate::after{ bottom:-11px; transform: rotate(180deg); }
+
+  .plate h1{
+    font-family:'Yomogi', cursive;
+    font-size: 2.5rem;
+    line-height:1.25;
+    margin: 0 0 4px;
+    color: var(--marron-dark);
+  }
+  .plate .subtitle{
+    font-family:'Yomogi', cursive;
+    font-size:1.15rem;
+    color: var(--maple);
+    margin: 0 0 18px;
+  }
+  .plate .desc{
+    font-size:0.92rem;
+    line-height:1.75;
+    color: var(--ink);
+    margin: 0 0 22px;
+  }
+  .plate .highscore{
+    margin-top:14px;
+    font-size:0.85rem;
+    font-weight:700;
+    color: var(--marron);
+  }
+  #big-score{
+    font-family:'Yomogi', cursive;
+    font-size:1.6rem;
+    color: var(--marron-dark);
+    margin: 4px 0 6px;
+  }
+
+  button{
+    font-family:'M PLUS Rounded 1c', sans-serif;
+    font-weight:800;
+    font-size:1.05rem;
+    color:#fff;
+    background: linear-gradient(180deg, var(--marron-light), var(--marron));
+    border: none;
+    padding: 14px 40px;
+    border-radius: 999px;
+    box-shadow: 0 5px 0 var(--marron-dark);
+    cursor:pointer;
+    letter-spacing:0.04em;
+  }
+  button:active{
+    transform: translateY(3px);
+    box-shadow: 0 2px 0 var(--marron-dark);
+  }
+  button:focus-visible{
+    outline: 3px solid var(--pumpkin);
+    outline-offset: 3px;
+  }
+
+  #webgl-fallback{
+    position:absolute; inset:0;
+    display:none;
+    align-items:center; justify-content:center;
+    background: var(--sky-bottom);
+    text-align:center;
+    padding: 40px;
+    font-size:1rem;
+  }
+
+  @media (max-width: 420px){
+    .plate h1{ font-size:2rem; }
+    .plate{ padding: 38px 22px 28px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game-canvas"></canvas>
+
+  <div id="ui-layer">
+    <div id="hud" class="hidden">
+      <div id="hp-row"></div>
+      <div id="score-wave">
+        <div id="score">スコア 0</div>
+        <div id="wave">ウェーブ 1</div>
+      </div>
+    </div>
+
+    <div id="hint" class="hidden">タップ／クリックして むき栗を投げよう！</div>
+    <div id="wave-banner"></div>
+
+    <div id="title-screen" class="panel">
+      <div class="plate">
+        <h1>モンブランを<br>まもれ！</h1>
+        <p class="subtitle">〜 むき栗ディフェンス 〜</p>
+        <p class="desc">画面をタップ・クリックして、むき栗を投げよう。<br>森からやってくるどんぐりやきのこの仲間たちから、<br>真ん中の大きなモンブランを守りぬけ！</p>
+        <button id="start-btn">はじめる</button>
+        <p class="highscore" id="title-highscore"></p>
+      </div>
+    </div>
+
+    <div id="gameover-screen" class="panel hidden">
+      <div class="plate">
+        <h1>ゲームオーバー</h1>
+        <p id="big-score"></p>
+        <p class="desc">モンブランが食べつくされてしまった…！</p>
+        <p class="highscore" id="go-highscore"></p>
+        <button id="restart-btn">もういちど</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="webgl-fallback">
+    <p>お使いのブラウザでは3D表示を利用できませんでした。<br>別のブラウザでお試しください。</p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---------------------------------------------------------------
+  // Constants
+  // ---------------------------------------------------------------
+  var STAGE_RADIUS = 7.0;
+  var SPAWN_RADIUS = 6.4;
+  var MONTBLANC_HIT_RADIUS = 1.85;
+  var MAX_HP = 5;
+
+  var ENEMY_DEFS = {
+    acorn:    { hp: 1, speed: 1.35, score: 10 },
+    mushroom: { hp: 2, speed: 0.9,  score: 20 },
+    bat:      { hp: 1, speed: 1.8,  score: 15 }
+  };
+
+  var LEAF_COLORS = [0xC1440E, 0xE8871E, 0xE0A72E, 0x9C3D12];
+
+  // ---------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------
+  var state = {
+    mode: 'title',
+    score: 0,
+    wave: 1,
+    hp: MAX_HP,
+    killCount: 0,
+    spawnTimer: 1.0,
+    spawnInterval: 1.8,
+    enemies: [],
+    projectiles: [],
+    particles: [],
+    shakeTime: 0
+  };
+
+  // ---------------------------------------------------------------
+  // DOM refs
+  // ---------------------------------------------------------------
+  var canvas = document.getElementById('game-canvas');
+  var hud = document.getElementById('hud');
+  var hpRow = document.getElementById('hp-row');
+  var scoreEl = document.getElementById('score');
+  var waveEl = document.getElementById('wave');
+  var hintEl = document.getElementById('hint');
+  var waveBanner = document.getElementById('wave-banner');
+  var titleScreen = document.getElementById('title-screen');
+  var gameoverScreen = document.getElementById('gameover-screen');
+  var bigScoreEl = document.getElementById('big-score');
+  var titleHighscoreEl = document.getElementById('title-highscore');
+  var goHighscoreEl = document.getElementById('go-highscore');
+  var startBtn = document.getElementById('start-btn');
+  var restartBtn = document.getElementById('restart-btn');
+  var fallbackEl = document.getElementById('webgl-fallback');
+
+  var hintTimeout = null;
+
+  // ---------------------------------------------------------------
+  // High score (per-viewer convenience only; never shared)
+  // ---------------------------------------------------------------
+  var HS_KEY = 'montblanc-defense-highscore';
+  function getHighScore(){
+    try{
+      var v = localStorage.getItem(HS_KEY);
+      return v ? parseInt(v,10) || 0 : 0;
+    }catch(e){ return 0; }
+  }
+  function setHighScore(v){
+    try{ localStorage.setItem(HS_KEY, String(v)); }catch(e){}
+  }
+
+  // ---------------------------------------------------------------
+  // Audio (tiny synthesized cues, no external assets)
+  // ---------------------------------------------------------------
+  var audioCtx = null;
+  function ensureAudio(){
+    if(audioCtx) return;
+    try{
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if(Ctx) audioCtx = new Ctx();
+    }catch(e){}
+  }
+  function playTone(freq, duration, type, vol){
+    if(!audioCtx) return;
+    try{
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(vol || 0.12, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }catch(e){}
+  }
+  function playPop(){ playTone(520, 0.1, 'triangle', 0.1); }
+  function playHitThud(){ playTone(240, 0.1, 'sine', 0.12); }
+  function playHitKill(){
+    playTone(880, 0.12, 'square', 0.09);
+    setTimeout(function(){ playTone(1180, 0.1, 'square', 0.07); }, 55);
+  }
+  function playDamage(){ playTone(130, 0.28, 'sawtooth', 0.14); }
+
+  // ---------------------------------------------------------------
+  // Three.js setup
+  // ---------------------------------------------------------------
+  var renderer, scene, camera, clock;
+  var raycaster, mouseNDC, groundPlane;
+  var reticle, montBlanc, leaves = [];
+  var baseCamPos;
+
+  function init(){
+    if(!window.THREE){
+      fallbackEl.style.display = 'flex';
+      return false;
+    }
+    try{
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    }catch(e){
+      fallbackEl.style.display = 'flex';
+      return false;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0xF3B36B, 15, 27);
+
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
+    camera.position.set(0, 8.6, 10.6);
+    camera.lookAt(0, 1.1, 0);
+    baseCamPos = camera.position.clone();
+
+    clock = new THREE.Clock();
+    raycaster = new THREE.Raycaster();
+    mouseNDC = new THREE.Vector2();
+    groundPlane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
+
+    // lights
+    var hemi = new THREE.HemisphereLight(0xfff0d9, 0x6b4226, 0.95);
+    scene.add(hemi);
+    var dir = new THREE.DirectionalLight(0xfff2d0, 0.9);
+    dir.position.set(5, 10, 6);
+    dir.castShadow = true;
+    dir.shadow.mapSize.set(1024,1024);
+    dir.shadow.camera.left = -9; dir.shadow.camera.right = 9;
+    dir.shadow.camera.top = 9; dir.shadow.camera.bottom = -9;
+    dir.shadow.camera.far = 30;
+    scene.add(dir);
+
+    // stage
+    scene.add(createStage());
+
+    // decorations
+    createDecorations().forEach(function(d){ scene.add(d); });
+
+    // mont blanc hero object
+    montBlanc = createMontBlanc();
+    scene.add(montBlanc);
+
+    // reticle
+    reticle = createReticle();
+    scene.add(reticle);
+
+    // ambient leaves
+    leaves = createLeaves(reducedMotion ? 12 : 26);
+
+    window.addEventListener('resize', onResize);
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerdown', onPointerDown);
+
+    updateHeartsUI();
+    updateScoreUI();
+
+    var hs = getHighScore();
+    if(hs > 0) titleHighscoreEl.textContent = 'ハイスコア ' + hs;
+
+    requestAnimationFrame(animate);
+    return true;
+  }
+
+  function onResize(){
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  // ---------------------------------------------------------------
+  // Stage & decoration builders
+  // ---------------------------------------------------------------
+  function createStage(){
+    var group = new THREE.Group();
+
+    var tableGeo = new THREE.CylinderGeometry(8.4, 8.6, 0.4, 40);
+    var tableMat = new THREE.MeshStandardMaterial({ color: 0xA6693B, flatShading: true, roughness: 0.95 });
+    var table = new THREE.Mesh(tableGeo, tableMat);
+    table.position.y = -0.2;
+    table.receiveShadow = true;
+    group.add(table);
+
+    var segs = 64;
+    var clothGeo = new THREE.CylinderGeometry(7.5, 7.5, 0.12, segs);
+    var pos = clothGeo.attributes.position;
+    for(var i=0;i<pos.count;i++){
+      var x = pos.getX(i), z = pos.getZ(i);
+      var r = Math.sqrt(x*x+z*z);
+      if(r > 7.0){
+        var angle = Math.atan2(z,x);
+        var wave = Math.sin(angle*24) * 0.12;
+        var scale = (r+wave)/r;
+        pos.setX(i, x*scale);
+        pos.setZ(i, z*scale);
+      }
+    }
+    clothGeo.computeVertexNormals();
+    var clothMat = new THREE.MeshStandardMaterial({ color: 0xFFF3DF, flatShading: true, roughness: 0.9 });
+    var cloth = new THREE.Mesh(clothGeo, clothMat);
+    cloth.position.y = 0.06;
+    cloth.receiveShadow = true;
+    group.add(cloth);
+
+    return group;
+  }
+
+  function createPumpkin(){
+    var g = new THREE.Group();
+    var geo = new THREE.SphereGeometry(0.34, 10, 8);
+    geo.scale(1, 0.82, 1);
+    var mat = new THREE.MeshStandardMaterial({ color: 0xE8871E, flatShading: true });
+    var body = new THREE.Mesh(geo, mat);
+    body.position.y = 0.28;
+    g.add(body);
+    var stemGeo = new THREE.CylinderGeometry(0.05, 0.07, 0.16, 6);
+    var stemMat = new THREE.MeshStandardMaterial({ color: 0x6B8E4E });
+    var stem = new THREE.Mesh(stemGeo, stemMat);
+    stem.position.y = 0.64;
+    g.add(stem);
+    g.traverse(function(o){ if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+    return g;
+  }
+
+  function createTinyMushroom(){
+    var g = new THREE.Group();
+    var stemGeo = new THREE.CylinderGeometry(0.08, 0.1, 0.26, 8);
+    var stemMat = new THREE.MeshStandardMaterial({ color: 0xFFF3DF });
+    var stem = new THREE.Mesh(stemGeo, stemMat);
+    stem.position.y = 0.13;
+    g.add(stem);
+    var capGeo = new THREE.SphereGeometry(0.19, 10, 8, 0, Math.PI*2, 0, Math.PI*0.5);
+    var capMat = new THREE.MeshStandardMaterial({ color: 0xC1440E, flatShading: true });
+    var cap = new THREE.Mesh(capGeo, capMat);
+    cap.position.y = 0.26;
+    g.add(cap);
+    g.traverse(function(o){ if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+    return g;
+  }
+
+  function createDecorations(){
+    var items = [];
+    var count = 7;
+    for(var i=0;i<count;i++){
+      var angle = (i/count) * Math.PI*2 + 0.3;
+      var r = 8.05;
+      var deco = (i % 2 === 0) ? createPumpkin() : createTinyMushroom();
+      deco.position.set(Math.cos(angle)*r, -0.02, Math.sin(angle)*r);
+      deco.rotation.y = Math.random()*Math.PI*2;
+      var s = 0.85 + Math.random()*0.4;
+      deco.scale.set(s,s,s);
+      items.push(deco);
+    }
+    return items;
+  }
+
+  function createMontBlanc(){
+    var group = new THREE.Group();
+
+    var plateGeo = new THREE.CylinderGeometry(3.6, 3.7, 0.18, 32);
+    var plateMat = new THREE.MeshStandardMaterial({ color: 0xFFF8EC, flatShading: true, roughness: 0.8 });
+    var plate = new THREE.Mesh(plateGeo, plateMat);
+    plate.position.y = 0.09;
+    plate.receiveShadow = true;
+    group.add(plate);
+
+    var spongeGeo = new THREE.CylinderGeometry(1.7, 1.85, 0.55, 20);
+    var spongeMat = new THREE.MeshStandardMaterial({ color: 0xE3A95C, flatShading: true, roughness: 0.9 });
+    var sponge = new THREE.Mesh(spongeGeo, spongeMat);
+    sponge.position.y = 0.18 + 0.275;
+    sponge.castShadow = true; sponge.receiveShadow = true;
+    group.add(sponge);
+
+    var ringColors = [0xB4835B,0xAA764E,0xA06B45,0x96603C,0x8C5534,0x824A2C,0x783F24];
+    var y = 0.18 + 0.55;
+    var radius = 1.55;
+    for(var i=0;i<ringColors.length;i++){
+      var tube = 0.32 - i*0.012;
+      var geo = new THREE.TorusGeometry(radius, tube, 8, 20);
+      var mat = new THREE.MeshStandardMaterial({ color: ringColors[i], flatShading: true, roughness: 0.85 });
+      var ring = new THREE.Mesh(geo, mat);
+      ring.rotation.x = Math.PI/2;
+      ring.rotation.z = i*0.35;
+      ring.position.y = y;
+      ring.castShadow = true;
+      group.add(ring);
+      y += tube*1.15;
+      radius -= 0.2;
+    }
+
+    var peakGeo = new THREE.ConeGeometry(0.4, 0.5, 12);
+    var peakMat = new THREE.MeshStandardMaterial({ color: 0xFFFAF0, flatShading: true, roughness: 0.7 });
+    var peak = new THREE.Mesh(peakGeo, peakMat);
+    peak.position.y = y + 0.18;
+    peak.castShadow = true;
+    group.add(peak);
+
+    var chestnutGeo = new THREE.SphereGeometry(0.22, 10, 8);
+    chestnutGeo.scale(1, 0.85, 1);
+    var chestnutMat = new THREE.MeshStandardMaterial({ color: 0x6B4226, flatShading: true, roughness: 0.6 });
+    var chestnut = new THREE.Mesh(chestnutGeo, chestnutMat);
+    chestnut.position.y = y + 0.48;
+    chestnut.castShadow = true;
+    group.add(chestnut);
+
+    var leafGeo = new THREE.ConeGeometry(0.11, 0.28, 4);
+    var leafMat = new THREE.MeshStandardMaterial({ color: 0x6B8E4E, flatShading: true });
+    var mintLeaf = new THREE.Mesh(leafGeo, leafMat);
+    mintLeaf.position.set(0.22, y + 0.32, 0);
+    mintLeaf.rotation.z = Math.PI/3;
+    group.add(mintLeaf);
+
+    var sugarGeo = new THREE.SphereGeometry(0.035, 4, 4);
+    var sugarMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+    for(var s=0; s<36; s++){
+      var sugar = new THREE.Mesh(sugarGeo, sugarMat);
+      var a = Math.random()*Math.PI*2;
+      var rr = Math.random()*1.4;
+      sugar.position.set(Math.cos(a)*rr, 0.7+Math.random()*1.6, Math.sin(a)*rr);
+      group.add(sugar);
+    }
+
+    group.userData.chestnutTop = chestnut;
+    group.userData.baseScale = 1;
+    return group;
+  }
+
+  function createReticle(){
+    var geo = new THREE.RingGeometry(0.28, 0.38, 24);
+    var mat = new THREE.MeshBasicMaterial({ color: 0xC1440E, transparent: true, opacity: 0.55, side: THREE.DoubleSide });
+    var ring = new THREE.Mesh(geo, mat);
+    ring.rotation.x = -Math.PI/2;
+    ring.position.y = 0.03;
+    ring.visible = false;
+    return ring;
+  }
+
+  // ---------------------------------------------------------------
+  // Enemy builders
+  // ---------------------------------------------------------------
+  function createAcornBug(){
+    var g = new THREE.Group();
+    var bodyGeo = new THREE.SphereGeometry(0.32, 10, 8);
+    var bodyMat = new THREE.MeshStandardMaterial({ color: 0xC98A4B, flatShading: true });
+    var body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = 0.32; body.castShadow = true;
+    g.add(body);
+
+    var capGeo = new THREE.SphereGeometry(0.34, 10, 8, 0, Math.PI*2, 0, Math.PI*0.55);
+    var capMat = new THREE.MeshStandardMaterial({ color: 0x6B4226, flatShading: true });
+    var cap = new THREE.Mesh(capGeo, capMat);
+    cap.position.y = 0.5; cap.castShadow = true;
+    g.add(cap);
+
+    addEyes(g, 0.36, 0.28, 0.12);
+
+    var legGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.18, 6);
+    var legMat = new THREE.MeshStandardMaterial({ color: 0x4A2E1A });
+    var legs = [];
+    [[-0.22,0.15],[0.22,0.15],[-0.22,-0.15],[0.22,-0.15]].forEach(function(p){
+      var leg = new THREE.Mesh(legGeo, legMat);
+      leg.position.set(p[0], 0.09, p[1]);
+      g.add(leg);
+      legs.push(leg);
+    });
+    g.userData.legs = legs;
+    return g;
+  }
+
+  function createMushroomSlime(){
+    var g = new THREE.Group();
+    var baseGeo = new THREE.SphereGeometry(0.34, 10, 8);
+    baseGeo.scale(1, 0.7, 1);
+    var baseMat = new THREE.MeshStandardMaterial({ color: 0xFFF3DF, flatShading: true });
+    var base = new THREE.Mesh(baseGeo, baseMat);
+    base.position.y = 0.22; base.castShadow = true;
+    g.add(base);
+
+    var capGeo = new THREE.SphereGeometry(0.4, 12, 8, 0, Math.PI*2, 0, Math.PI*0.5);
+    var capMat = new THREE.MeshStandardMaterial({ color: 0xC1440E, flatShading: true });
+    var cap = new THREE.Mesh(capGeo, capMat);
+    cap.position.y = 0.4; cap.castShadow = true;
+    g.add(cap);
+
+    var dotGeo = new THREE.SphereGeometry(0.045, 6, 6);
+    var dotMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+    for(var i=0;i<5;i++){
+      var a = Math.random()*Math.PI*2, r = Math.random()*0.28;
+      var dot = new THREE.Mesh(dotGeo, dotMat);
+      dot.position.set(Math.cos(a)*r, 0.53+Math.random()*0.05, Math.sin(a)*r);
+      g.add(dot);
+    }
+
+    addEyes(g, 0.28, 0.28, 0.11);
+    return g;
+  }
+
+  function createLeafBat(){
+    var g = new THREE.Group();
+    var shape = new THREE.Shape();
+    shape.moveTo(0, 0.28);
+    shape.lineTo(0.32, 0);
+    shape.lineTo(0, -0.22);
+    shape.lineTo(-0.32, 0);
+    shape.closePath();
+    var geo = new THREE.ShapeGeometry(shape);
+    var matL = new THREE.MeshStandardMaterial({ color: 0xE8871E, flatShading: true, side: THREE.DoubleSide });
+    var matR = new THREE.MeshStandardMaterial({ color: 0xE8871E, flatShading: true, side: THREE.DoubleSide });
+    var wingL = new THREE.Mesh(geo, matL);
+    wingL.position.set(-0.16, 0, 0); wingL.rotation.y = 0.3;
+    g.add(wingL);
+    var wingR = new THREE.Mesh(geo.clone(), matR);
+    wingR.position.set(0.16, 0, 0); wingR.rotation.y = -0.3;
+    g.add(wingR);
+
+    var bodyGeo = new THREE.SphereGeometry(0.15, 8, 8);
+    var bodyMat = new THREE.MeshStandardMaterial({ color: 0xC1440E, flatShading: true });
+    var body = new THREE.Mesh(bodyGeo, bodyMat);
+    g.add(body);
+
+    addEyes(g, 0.03, 0.13, 0.06);
+
+    g.userData.wings = [wingL, wingR];
+    g.userData.flying = true;
+    return g;
+  }
+
+  function addEyes(g, yOff, zOff, spacing){
+    var eyeGeo = new THREE.SphereGeometry(spacing*0.5, 6, 6);
+    var eyeMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+    var pupilGeo = new THREE.SphereGeometry(spacing*0.25, 6, 6);
+    var pupilMat = new THREE.MeshStandardMaterial({ color: 0x2A1A10 });
+    [-spacing, spacing].forEach(function(dx){
+      var eye = new THREE.Mesh(eyeGeo, eyeMat);
+      eye.position.set(dx, yOff, zOff);
+      g.add(eye);
+      var pupil = new THREE.Mesh(pupilGeo, pupilMat);
+      pupil.position.set(dx, yOff, zOff + spacing*0.4);
+      g.add(pupil);
+    });
+  }
+
+  function createChestnutMesh(){
+    var g = new THREE.Group();
+    var bodyGeo = new THREE.SphereGeometry(0.16, 8, 8);
+    bodyGeo.scale(1, 1.15, 1);
+    var bodyMat = new THREE.MeshStandardMaterial({ color: 0xE8C08A, flatShading: true });
+    var body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.castShadow = true;
+    g.add(body);
+    var tipGeo = new THREE.ConeGeometry(0.09, 0.14, 8);
+    var tipMat = new THREE.MeshStandardMaterial({ color: 0x6B4226, flatShading: true });
+    var tip = new THREE.Mesh(tipGeo, tipMat);
+    tip.position.y = 0.2;
+    tip.castShadow = true;
+    g.add(tip);
+    return g;
+  }
+
+  // ---------------------------------------------------------------
+  // Leaves (ambient)
+  // ---------------------------------------------------------------
+  function createLeaves(count){
+    var arr = [];
+    var geo = new THREE.PlaneGeometry(0.3, 0.42);
+    for(var i=0;i<count;i++){
+      var mat = new THREE.MeshStandardMaterial({
+        color: LEAF_COLORS[i % LEAF_COLORS.length],
+        side: THREE.DoubleSide,
+        flatShading: true
+      });
+      var mesh = new THREE.Mesh(geo, mat);
+      var leaf = { mesh: mesh, speed: 0.35 + Math.random()*0.45, spin: (Math.random()-0.5)*2, sway: Math.random()*Math.PI*2 };
+      resetLeaf(leaf);
+      scene.add(mesh);
+      arr.push(leaf);
+    }
+    return arr;
+  }
+  function resetLeaf(leaf){
+    var a = Math.random()*Math.PI*2;
+    var r = Math.random()*8.2;
+    leaf.mesh.position.set(Math.cos(a)*r, 6 + Math.random()*6, Math.sin(a)*r);
+    leaf.mesh.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+  }
+  function updateLeaves(delta){
+    for(var i=0;i<leaves.length;i++){
+      var l = leaves[i];
+      l.mesh.position.y -= l.speed*delta;
+      l.sway += delta;
+      l.mesh.position.x += Math.sin(l.sway)*delta*0.3;
+      l.mesh.rotation.y += l.spin*delta;
+      l.mesh.rotation.x += delta*0.3;
+      if(l.mesh.position.y < -0.5) resetLeaf(l);
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Enemy spawn / update
+  // ---------------------------------------------------------------
+  function pickEnemyType(wave){
+    var pool = ['acorn','acorn'];
+    if(wave >= 2) pool.push('mushroom');
+    if(wave >= 3) pool.push('bat');
+    if(wave >= 4) pool.push('mushroom','bat');
+    return pool[Math.floor(Math.random()*pool.length)];
+  }
+
+  function spawnEnemy(){
+    var type = pickEnemyType(state.wave);
+    var def = ENEMY_DEFS[type];
+    var mesh;
+    if(type === 'acorn') mesh = createAcornBug();
+    else if(type === 'mushroom') mesh = createMushroomSlime();
+    else mesh = createLeafBat();
+
+    var flying = !!mesh.userData.flying;
+    var angle = Math.random()*Math.PI*2;
+    mesh.position.set(Math.cos(angle)*SPAWN_RADIUS, flying ? 1.3 : 0, Math.sin(angle)*SPAWN_RADIUS);
+    scene.add(mesh);
+
+    state.enemies.push({
+      mesh: mesh,
+      type: type,
+      hp: def.hp + Math.floor(state.wave/4),
+      speed: def.speed * (1 + state.wave*0.05),
+      score: def.score,
+      flying: flying,
+      alive: true,
+      bobPhase: Math.random()*Math.PI*2
+    });
+  }
+
+  function updateEnemies(delta, time){
+    for(var i=0;i<state.enemies.length;i++){
+      var e = state.enemies[i];
+      if(!e.alive) continue;
+      var px = e.mesh.position.x, pz = e.mesh.position.z;
+      var dist = Math.hypot(px, pz);
+      if(dist > 0.0001){
+        var dx = -px/dist, dz = -pz/dist;
+        e.mesh.position.x += dx * e.speed * delta;
+        e.mesh.position.z += dz * e.speed * delta;
+      }
+      var baseY = e.flying ? 1.3 : 0;
+      e.mesh.position.y = baseY + Math.sin(time*6 + e.bobPhase) * (e.flying ? 0.15 : 0.04);
+      e.mesh.lookAt(0, e.mesh.position.y, 0);
+
+      if(e.mesh.userData.legs){
+        for(var li=0; li<e.mesh.userData.legs.length; li++){
+          e.mesh.userData.legs[li].rotation.x = Math.sin(time*10 + li) * 0.4;
+        }
+      }
+      if(e.mesh.userData.wings){
+        e.mesh.userData.wings[0].rotation.z = Math.sin(time*14) * 0.6;
+        e.mesh.userData.wings[1].rotation.z = -Math.sin(time*14) * 0.6;
+      }
+
+      var newDist = Math.hypot(e.mesh.position.x, e.mesh.position.z);
+      if(newDist < MONTBLANC_HIT_RADIUS){
+        damageMontBlanc(1);
+        e.alive = false;
+        scene.remove(e.mesh);
+      }
+    }
+    state.enemies = state.enemies.filter(function(e){ return e.alive; });
+  }
+
+  function hitEnemy(e){
+    e.hp -= 1;
+    if(e.hp <= 0){
+      e.alive = false;
+      scene.remove(e.mesh);
+      state.score += e.score;
+      state.killCount += 1;
+      updateScoreUI();
+      spawnPoof(e.mesh.position);
+      playHitKill();
+      maybeAdvanceWave();
+    } else {
+      playHitThud();
+      var s = e.mesh.scale;
+      e.mesh.userData.punch = 1;
+    }
+  }
+
+  function maybeAdvanceWave(){
+    if(state.killCount >= state.wave * 8){
+      state.wave += 1;
+      state.spawnInterval = Math.max(0.55, 1.8 - state.wave*0.12);
+      updateWaveUI();
+      showWaveBanner(state.wave);
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Projectiles & particles
+  // ---------------------------------------------------------------
+  function throwChestnut(target){
+    playPop();
+    var start = new THREE.Vector3(0, 1.4, 8.6);
+    var end = new THREE.Vector3(target.x, 0.3, target.z);
+    var mesh = createChestnutMesh();
+    mesh.position.copy(start);
+    scene.add(mesh);
+    var dist = start.distanceTo(new THREE.Vector3(target.x, 0, target.z));
+    var duration = Math.min(Math.max(dist/9, 0.35), 0.9);
+    state.projectiles.push({
+      mesh: mesh, start: start.clone(), end: end, t: 0, duration: duration,
+      arc: 1.1 + dist*0.12, hit: false, remove: false
+    });
+  }
+
+  function updateProjectiles(delta){
+    for(var i=0;i<state.projectiles.length;i++){
+      var p = state.projectiles[i];
+      if(p.remove) continue;
+      p.t += delta / p.duration;
+      var t = Math.min(p.t, 1);
+      var pos = new THREE.Vector3().lerpVectors(p.start, p.end, t);
+      pos.y += Math.sin(Math.PI*t) * p.arc;
+      p.mesh.position.copy(pos);
+      p.mesh.rotation.x += delta*9;
+      p.mesh.rotation.z += delta*5;
+
+      if(!p.hit){
+        for(var j=0;j<state.enemies.length;j++){
+          var e = state.enemies[j];
+          if(!e.alive) continue;
+          var dx = pos.x - e.mesh.position.x;
+          var dz = pos.z - e.mesh.position.z;
+          var dy = pos.y - e.mesh.position.y;
+          if(Math.abs(dy) < 0.65 && Math.hypot(dx,dz) < 0.55){
+            hitEnemy(e);
+            p.hit = true;
+            p.remove = true;
+            scene.remove(p.mesh);
+            break;
+          }
+        }
+      }
+      if(!p.remove && p.t >= 1){
+        spawnSplat(pos);
+        p.remove = true;
+        scene.remove(p.mesh);
+      }
+    }
+    state.projectiles = state.projectiles.filter(function(p){ return !p.remove; });
+  }
+
+  function spawnPoof(position){
+    var count = 6;
+    for(var i=0;i<count;i++){
+      var geo = new THREE.SphereGeometry(0.06, 6, 6);
+      var mat = new THREE.MeshBasicMaterial({ color: 0xFFF6E9, transparent: true, opacity: 0.95 });
+      var mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(position);
+      mesh.position.y += 0.2;
+      scene.add(mesh);
+      var angle = (i/count) * Math.PI*2;
+      state.particles.push({
+        mesh: mesh, life: 0, maxLife: 0.45,
+        vel: new THREE.Vector3(Math.cos(angle)*1.4, 1.6, Math.sin(angle)*1.4),
+        remove: false
+      });
+    }
+  }
+
+  function spawnSplat(position){
+    var geo = new THREE.CircleGeometry(0.3, 16);
+    var mat = new THREE.MeshBasicMaterial({ color: 0xE8C08A, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI/2;
+    mesh.position.set(position.x, 0.03, position.z);
+    scene.add(mesh);
+    state.particles.push({ mesh: mesh, life: 0, maxLife: 0.4, vel: new THREE.Vector3(0,0,0), splat: true, remove: false });
+  }
+
+  function updateParticles(delta){
+    for(var i=0;i<state.particles.length;i++){
+      var p = state.particles[i];
+      if(p.remove) continue;
+      p.life += delta;
+      var t = p.life / p.maxLife;
+      if(t >= 1){
+        p.remove = true;
+        scene.remove(p.mesh);
+        continue;
+      }
+      if(p.splat){
+        var sc = 0.4 + t*1.3;
+        p.mesh.scale.set(sc, sc, sc);
+        p.mesh.material.opacity = 0.8 * (1-t);
+      } else {
+        p.vel.y -= delta*3.2;
+        p.mesh.position.addScaledVector(p.vel, delta);
+        var scale = 1 + t*1.4;
+        p.mesh.scale.set(scale, scale, scale);
+        p.mesh.material.opacity = 0.95 * (1-t);
+      }
+    }
+    state.particles = state.particles.filter(function(p){ return !p.remove; });
+  }
+
+  // ---------------------------------------------------------------
+  // Mont Blanc damage / hp / camera shake
+  // ---------------------------------------------------------------
+  function damageMontBlanc(amount){
+    state.hp = Math.max(0, state.hp - amount);
+    updateHeartsUI();
+    playDamage();
+    if(!reducedMotion) state.shakeTime = 0.28;
+    montBlanc.userData.punch = 1;
+    if(state.hp <= 0){
+      gameOver();
+    }
+  }
+
+  function updateCameraShake(delta){
+    if(state.shakeTime > 0){
+      state.shakeTime -= delta;
+      camera.position.x = baseCamPos.x + (Math.random()-0.5)*0.18;
+      camera.position.y = baseCamPos.y + (Math.random()-0.5)*0.12;
+    } else {
+      camera.position.lerp(baseCamPos, 0.15);
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Input
+  // ---------------------------------------------------------------
+  function getGroundPoint(clientX, clientY){
+    var rect = canvas.getBoundingClientRect();
+    var x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    var y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    mouseNDC.set(x, y);
+    raycaster.setFromCamera(mouseNDC, camera);
+    var point = new THREE.Vector3();
+    var hit = raycaster.ray.intersectPlane(groundPlane, point);
+    if(!hit) return null;
+    var d = Math.hypot(point.x, point.z);
+    var maxR = SPAWN_RADIUS + 1.5;
+    if(d > maxR){
+      point.x = point.x / d * maxR;
+      point.z = point.z / d * maxR;
+    }
+    return point;
+  }
+
+  function onPointerMove(evt){
+    if(state.mode !== 'playing') return;
+    var point = getGroundPoint(evt.clientX, evt.clientY);
+    if(point){
+      reticle.visible = evt.pointerType !== 'touch';
+      reticle.position.x = point.x;
+      reticle.position.z = point.z;
+    }
+  }
+
+  function onPointerDown(evt){
+    if(state.mode !== 'playing') return;
+    var point = getGroundPoint(evt.clientX, evt.clientY);
+    if(point) throwChestnut(point);
+  }
+
+  // ---------------------------------------------------------------
+  // UI updates
+  // ---------------------------------------------------------------
+  function updateHeartsUI(){
+    hpRow.innerHTML = '';
+    for(var i=0;i<MAX_HP;i++){
+      var span = document.createElement('span');
+      span.className = 'heart' + (i < state.hp ? '' : ' lost');
+      span.textContent = '\uD83C\uDF30'; /* chestnut emoji */
+      hpRow.appendChild(span);
+    }
+  }
+  function updateScoreUI(){
+    scoreEl.textContent = 'スコア ' + state.score;
+  }
+  function updateWaveUI(){
+    waveEl.textContent = 'ウェーブ ' + state.wave;
+  }
+  function showWaveBanner(n){
+    waveBanner.textContent = 'ウェーブ ' + n;
+    waveBanner.classList.add('show');
+    setTimeout(function(){ waveBanner.classList.remove('show'); }, 1200);
+  }
+
+  // ---------------------------------------------------------------
+  // Game flow
+  // ---------------------------------------------------------------
+  function resetWorldObjects(){
+    state.enemies.forEach(function(e){ scene.remove(e.mesh); });
+    state.projectiles.forEach(function(p){ scene.remove(p.mesh); });
+    state.particles.forEach(function(p){ scene.remove(p.mesh); });
+    state.enemies = [];
+    state.projectiles = [];
+    state.particles = [];
+  }
+
+  function startGame(){
+    ensureAudio();
+    resetWorldObjects();
+    state.mode = 'playing';
+    state.score = 0;
+    state.wave = 1;
+    state.hp = MAX_HP;
+    state.killCount = 0;
+    state.spawnInterval = 1.8;
+    state.spawnTimer = 1.0;
+
+    titleScreen.classList.add('hidden');
+    gameoverScreen.classList.add('hidden');
+    hud.classList.remove('hidden');
+    hintEl.classList.remove('hidden');
+    if(hintTimeout) clearTimeout(hintTimeout);
+    hintTimeout = setTimeout(function(){ hintEl.classList.add('hidden'); }, 4200);
+
+    updateHeartsUI();
+    updateScoreUI();
+    updateWaveUI();
+    showWaveBanner(1);
+  }
+
+  function gameOver(){
+    state.mode = 'gameover';
+    hud.classList.add('hidden');
+    hintEl.classList.add('hidden');
+    bigScoreEl.id = 'big-score';
+    bigScoreEl.textContent = 'スコア ' + state.score;
+    var hs = getHighScore();
+    if(state.score > hs){
+      setHighScore(state.score);
+      hs = state.score;
+      goHighscoreEl.textContent = 'ハイスコア更新！ ' + hs;
+    } else {
+      goHighscoreEl.textContent = 'ハイスコア ' + hs;
+    }
+    gameoverScreen.classList.remove('hidden');
+  }
+
+  startBtn.addEventListener('click', startGame);
+  restartBtn.addEventListener('click', startGame);
+
+  // ---------------------------------------------------------------
+  // Main loop
+  // ---------------------------------------------------------------
+  function animate(){
+    requestAnimationFrame(animate);
+    var delta = Math.min(clock.getDelta(), 0.05);
+    var time = clock.elapsedTime;
+
+    if(montBlanc){
+      montBlanc.userData.chestnutTop.rotation.y += delta * (reducedMotion ? 0.15 : 0.5);
+      if(montBlanc.userData.punch){
+        montBlanc.userData.punch = Math.max(0, montBlanc.userData.punch - delta*4);
+        var sc = 1 + montBlanc.userData.punch*0.06;
+        montBlanc.scale.set(sc, sc, sc);
+      }
+    }
+
+    updateLeaves(delta);
+
+    if(state.mode === 'playing'){
+      state.spawnTimer -= delta;
+      if(state.spawnTimer <= 0){
+        spawnEnemy();
+        state.spawnTimer = state.spawnInterval;
+      }
+      updateEnemies(delta, time);
+      updateProjectiles(delta);
+      updateParticles(delta);
+
+      for(var i=0;i<state.enemies.length;i++){
+        var e = state.enemies[i];
+        if(e.mesh.userData.punch){
+          e.mesh.userData.punch = Math.max(0, e.mesh.userData.punch - delta*5);
+          var s = 1 + e.mesh.userData.punch*0.25;
+          e.mesh.scale.set(s,s,s);
+        }
+      }
+    }
+
+    updateCameraShake(delta);
+    renderer.render(scene, camera);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
