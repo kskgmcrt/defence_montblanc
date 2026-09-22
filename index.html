@@ -231,14 +231,14 @@
       </div>
     </div>
 
-    <div id="hint" class="hidden">タップ／クリックして むき栗を投げよう！</div>
+    <div id="hint" class="hidden">クリック or スペースで投げる／矢印キーで移動！</div>
     <div id="wave-banner"></div>
 
     <div id="title-screen" class="panel">
       <div class="plate">
         <h1>モンブランを<br>まもれ！</h1>
         <p class="subtitle">〜 むき栗ディフェンス 〜</p>
-        <p class="desc">画面をタップ・クリックして、むき栗を投げよう。<br>森からやってくるどんぐりやきのこの仲間たちから、<br>真ん中の大きなモンブランを守りぬけ！</p>
+        <p class="desc">クリック・タップした場所か、スペースキーで<br>リスがむき栗を投げるよ。矢印キー（A・D）で<br>リスを左右に動かせるよ。<br>森からやってくるどんぐりやきのこの仲間たちから、<br>真ん中の大きなモンブランを守りぬけ！</p>
         <button id="start-btn">はじめる</button>
         <p class="highscore" id="title-highscore"></p>
       </div>
@@ -375,6 +375,8 @@
   var raycaster, mouseNDC, groundPlane;
   var reticle, montBlanc, leaves = [];
   var baseCamPos;
+  var player, lookDummy;
+  var keys = { left: false, right: false };
 
   function init(){
     if(!window.THREE){
@@ -431,12 +433,20 @@
     reticle = createReticle();
     scene.add(reticle);
 
+    // player character (chestnut-throwing squirrel)
+    player = createPlayerCharacter();
+    player.group.position.set(0, 0, player.radius);
+    scene.add(player.group);
+    lookDummy = new THREE.Object3D();
+
     // ambient leaves
     leaves = createLeaves(reducedMotion ? 12 : 26);
 
     window.addEventListener('resize', onResize);
     canvas.addEventListener('pointermove', onPointerMove);
     canvas.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
 
     updateHeartsUI();
     updateScoreUI();
@@ -619,6 +629,125 @@
     ring.position.y = 0.03;
     ring.visible = false;
     return ring;
+  }
+
+  // ---------------------------------------------------------------
+  // Player character (a chestnut-throwing squirrel)
+  // ---------------------------------------------------------------
+  function createPlayerCharacter(){
+    var g = new THREE.Group();
+
+    var bodyGeo = new THREE.SphereGeometry(0.42, 12, 10);
+    bodyGeo.scale(1, 1.05, 0.95);
+    var bodyMat = new THREE.MeshStandardMaterial({ color: 0xD9925B, flatShading: true, roughness: 0.85 });
+    var body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = 0.5;
+    body.castShadow = true;
+    g.add(body);
+
+    var bellyGeo = new THREE.SphereGeometry(0.3, 10, 8);
+    var bellyMat = new THREE.MeshStandardMaterial({ color: 0xFFF3DF, flatShading: true });
+    var belly = new THREE.Mesh(bellyGeo, bellyMat);
+    belly.position.set(0, 0.46, -0.28);
+    belly.scale.set(0.85, 0.9, 0.6);
+    g.add(belly);
+
+    var headGeo = new THREE.SphereGeometry(0.32, 12, 10);
+    var headMat = new THREE.MeshStandardMaterial({ color: 0xD9925B, flatShading: true, roughness: 0.85 });
+    var head = new THREE.Mesh(headGeo, headMat);
+    head.position.y = 1.05;
+    head.castShadow = true;
+    g.add(head);
+
+    var muzzleGeo = new THREE.SphereGeometry(0.16, 10, 8);
+    var muzzleMat = new THREE.MeshStandardMaterial({ color: 0xFFF3DF, flatShading: true });
+    var muzzle = new THREE.Mesh(muzzleGeo, muzzleMat);
+    muzzle.position.set(0, 0.98, -0.27);
+    muzzle.scale.set(0.9, 0.75, 0.85);
+    g.add(muzzle);
+
+    var noseGeo = new THREE.SphereGeometry(0.045, 6, 6);
+    var noseMat = new THREE.MeshStandardMaterial({ color: 0x4A2E1A });
+    var nose = new THREE.Mesh(noseGeo, noseMat);
+    nose.position.set(0, 1.02, -0.4);
+    g.add(nose);
+
+    var earGeo = new THREE.SphereGeometry(0.11, 8, 8);
+    var earMat = new THREE.MeshStandardMaterial({ color: 0xC17B44, flatShading: true });
+    [-0.19, 0.19].forEach(function(dx){
+      var ear = new THREE.Mesh(earGeo, earMat);
+      ear.position.set(dx, 1.32, 0.02);
+      ear.scale.set(0.8, 1, 0.6);
+      g.add(ear);
+    });
+
+    addEyes(g, 1.1, -0.27, 0.13);
+
+    var hatGeo = new THREE.ConeGeometry(0.34, 0.28, 10);
+    var hatMat = new THREE.MeshStandardMaterial({ color: 0xC1440E, flatShading: true });
+    var hat = new THREE.Mesh(hatGeo, hatMat);
+    hat.position.y = 1.5;
+    hat.rotation.z = 0.15;
+    g.add(hat);
+    var pompomGeo = new THREE.SphereGeometry(0.08, 8, 8);
+    var pompomMat = new THREE.MeshStandardMaterial({ color: 0xFFF6E9 });
+    var pompom = new THREE.Mesh(pompomGeo, pompomMat);
+    pompom.position.set(0.1, 1.66, 0);
+    g.add(pompom);
+
+    var armGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.42, 8);
+    var armMat = new THREE.MeshStandardMaterial({ color: 0xD9925B, flatShading: true });
+    var leftArm = new THREE.Mesh(armGeo, armMat);
+    leftArm.position.set(-0.38, 0.62, 0.05);
+    leftArm.rotation.z = 0.35;
+    g.add(leftArm);
+
+    var rightArmPivot = new THREE.Group();
+    rightArmPivot.position.set(0.38, 0.75, 0.05);
+    rightArmPivot.rotation.z = -0.5;
+    var rightArm = new THREE.Mesh(armGeo, armMat.clone());
+    rightArm.position.set(0, -0.18, 0);
+    rightArmPivot.add(rightArm);
+    g.add(rightArmPivot);
+
+    var heldChestnut = createChestnutMesh();
+    heldChestnut.scale.set(0.8, 0.8, 0.8);
+    heldChestnut.position.set(0, -0.24, 0);
+    rightArm.add(heldChestnut);
+
+    var tailGeo = new THREE.SphereGeometry(0.36, 10, 8);
+    tailGeo.scale(0.6, 1.3, 0.9);
+    var tailMat = new THREE.MeshStandardMaterial({ color: 0xC17B44, flatShading: true });
+    var tail = new THREE.Mesh(tailGeo, tailMat);
+    tail.position.set(0, 0.85, 0.42);
+    tail.rotation.x = 0.5;
+    tail.castShadow = true;
+    g.add(tail);
+    var tailTip = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshStandardMaterial({ color: 0xFFF3DF, flatShading: true }));
+    tailTip.position.set(0, 1.25, 0.62);
+    g.add(tailTip);
+
+    var footGeo = new THREE.SphereGeometry(0.14, 8, 8);
+    var footMat = new THREE.MeshStandardMaterial({ color: 0xC17B44 });
+    [-0.2, 0.2].forEach(function(dx){
+      var foot = new THREE.Mesh(footGeo, footMat);
+      foot.position.set(dx, 0.12, -0.1);
+      foot.scale.set(1, 0.7, 1.3);
+      g.add(foot);
+    });
+
+    g.traverse(function(o){ if(o.isMesh) o.castShadow = true; });
+
+    return {
+      group: g,
+      rightArmPivot: rightArmPivot,
+      heldChestnut: heldChestnut,
+      restArmZ: -0.5,
+      theta: 0,
+      radius: 7.0,
+      moveSpeed: 1.6,
+      throwAnim: 0
+    };
   }
 
   // ---------------------------------------------------------------
@@ -884,7 +1013,7 @@
   // ---------------------------------------------------------------
   function throwChestnut(target){
     playPop();
-    var start = new THREE.Vector3(0, 1.4, 8.6);
+    var start = getPlayerHandWorldPosition();
     var end = new THREE.Vector3(target.x, 0.3, target.z);
     var mesh = createChestnutMesh();
     mesh.position.copy(start);
@@ -895,6 +1024,7 @@
       mesh: mesh, start: start.clone(), end: end, t: 0, duration: duration,
       arc: 1.1 + dist*0.12, hit: false, remove: false
     });
+    player.throwAnim = 1;
   }
 
   function updateProjectiles(delta){
@@ -1049,6 +1179,67 @@
     if(point) throwChestnut(point);
   }
 
+  function onKeyDown(evt){
+    if(evt.code === 'ArrowLeft' || evt.code === 'KeyA') keys.left = true;
+    if(evt.code === 'ArrowRight' || evt.code === 'KeyD') keys.right = true;
+    if(evt.code === 'Space' && state.mode === 'playing'){
+      evt.preventDefault();
+      throwChestnut(getSpaceTarget());
+    }
+  }
+  function onKeyUp(evt){
+    if(evt.code === 'ArrowLeft' || evt.code === 'KeyA') keys.left = false;
+    if(evt.code === 'ArrowRight' || evt.code === 'KeyD') keys.right = false;
+  }
+
+  function getSpaceTarget(){
+    var nearest = null, nearestDist = Infinity;
+    for(var i=0;i<state.enemies.length;i++){
+      var e = state.enemies[i];
+      if(!e.alive) continue;
+      var d = Math.hypot(e.mesh.position.x, e.mesh.position.z);
+      if(d < nearestDist){ nearestDist = d; nearest = e; }
+    }
+    if(nearest) return new THREE.Vector3(nearest.mesh.position.x, 0, nearest.mesh.position.z);
+    return new THREE.Vector3(reticle.position.x, 0, reticle.position.z);
+  }
+
+  function getPlayerHandWorldPosition(){
+    var forward = new THREE.Vector3(0,0,-1).applyQuaternion(player.group.quaternion);
+    var pos = player.group.position.clone();
+    pos.y += 1.05;
+    pos.addScaledVector(forward, 0.45);
+    return pos;
+  }
+
+  function updatePlayer(delta, time){
+    if(state.mode === 'playing'){
+      if(keys.left) player.theta -= player.moveSpeed*delta;
+      if(keys.right) player.theta += player.moveSpeed*delta;
+    } else {
+      player.theta += (0 - player.theta) * Math.min(1, delta*4);
+    }
+    player.theta = Math.max(-0.5, Math.min(0.5, player.theta));
+    var x = Math.sin(player.theta) * player.radius;
+    var z = Math.cos(player.theta) * player.radius;
+    var idleBob = Math.sin(time*2.2) * 0.025;
+    player.group.position.set(x, idleBob, z);
+
+    var target = state.mode === 'playing' ? reticle.position : new THREE.Vector3(0,0,0);
+    lookDummy.position.copy(player.group.position);
+    lookDummy.lookAt(target.x, player.group.position.y, target.z);
+    player.group.quaternion.slerp(lookDummy.quaternion, Math.min(1, delta*10));
+
+    if(player.throwAnim > 0){
+      player.throwAnim = Math.max(0, player.throwAnim - delta/0.35);
+    }
+    var progress = 1 - player.throwAnim;
+    var swing = Math.sin(Math.min(progress,1) * Math.PI);
+    player.rightArmPivot.rotation.x = -swing * 2.0;
+    player.rightArmPivot.rotation.z = player.restArmZ + swing * 0.3;
+    player.heldChestnut.visible = player.throwAnim === 0;
+  }
+
   // ---------------------------------------------------------------
   // UI updates
   // ---------------------------------------------------------------
@@ -1095,6 +1286,8 @@
     state.killCount = 0;
     state.spawnInterval = 1.8;
     state.spawnTimer = 1.0;
+    player.theta = 0;
+    player.throwAnim = 0;
 
     titleScreen.classList.add('hidden');
     gameoverScreen.classList.add('hidden');
@@ -1147,6 +1340,7 @@
     }
 
     updateLeaves(delta);
+    if(player) updatePlayer(delta, time);
 
     if(state.mode === 'playing'){
       state.spawnTimer -= delta;
