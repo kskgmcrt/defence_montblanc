@@ -405,8 +405,8 @@ sun.position.set(15,24,11);
 sun.castShadow=true;
 sun.shadow.mapSize.set(SMALL?1024:2048, SMALL?1024:2048);
 const sc=sun.shadow.camera;
-sc.left=-26; sc.right=26; sc.top=26; sc.bottom=-26; sc.near=6; sc.far=70;
-sun.shadow.bias=-0.0009; sun.shadow.normalBias=0.03; sun.shadow.radius=2.4;
+sc.left=-20; sc.right=20; sc.top=20; sc.bottom=-20; sc.near=8; sc.far=64;
+sun.shadow.bias=-0.0004; sun.shadow.normalBias=0.05; sun.shadow.radius=2.4;
 scene.add(sun); scene.add(sun.target);
 
 const rim=new THREE.DirectionalLight(C('#B9CCF5'), .34);
@@ -504,7 +504,8 @@ const clouds=[];
   cx.fillStyle='rgba(255,236,206,.55)';
   for(let i=0;i<8;i++){ cx.fillRect(0,i*32,256,16); }
   const tex=new THREE.CanvasTexture(texC);
-  tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(14,14); tex.encoding=THREE.sRGBEncoding;
+  tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(7,7); tex.encoding=THREE.sRGBEncoding;
+  tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
   const cloth=new THREE.Mesh(new THREE.CircleGeometry(75,48), new THREE.MeshStandardMaterial({map:tex,roughness:.95,metalness:0}));
   cloth.rotation.x=-Math.PI/2; cloth.position.y=-3.6; cloth.receiveShadow=true;
   scene.add(cloth);
@@ -523,9 +524,10 @@ const world=new THREE.Group(); scene.add(world);
   const ring=new THREE.Mesh(new THREE.TorusGeometry(STAGE_R+3.0,.16,8,72), M('#E3A6BC',.5));
   ring.rotation.x=Math.PI/2; ring.position.y=-1.86; world.add(ring);
 
-  // tart body
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(STAGE_R,STAGE_R-.9,2.2,64,1,false), M('#DFA463',.92));
-  body.position.y=-1.1; body.castShadow=true; body.receiveShadow=true; world.add(body);
+  // tart body — its top cap is tucked BELOW the cream disc so no two
+  // surfaces ever share a height (that coplanar pair was the flicker)
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(STAGE_R,STAGE_R-.9,1.95,64,1,false), M('#DFA463',.92));
+  body.position.y=-1.52; body.castShadow=true; body.receiveShadow=true; world.add(body);
 
   // cream top surface with sugar speckle texture
   const tc=document.createElement('canvas'); tc.width=tc.height=512;
@@ -533,15 +535,17 @@ const world=new THREE.Group(); scene.add(world);
   const grd=g2.createRadialGradient(256,256,30,256,256,256);
   grd.addColorStop(0,'#FFF8EC'); grd.addColorStop(.72,'#FFEFD8'); grd.addColorStop(1,'#F7DFBC');
   g2.fillStyle=grd; g2.fillRect(0,0,512,512);
-  for(let i=0;i<2600;i++){
-    g2.fillStyle=Math.random()<.5?'rgba(255,255,255,.55)':'rgba(214,168,116,.22)';
-    const r=Math.random()*2.1;
+  // low-contrast, chunky speckle — fine high-frequency noise shimmers when the camera moves
+  for(let i=0;i<820;i++){
+    g2.fillStyle=Math.random()<.5?'rgba(255,255,255,.26)':'rgba(214,168,116,.13)';
+    const r=1.3+Math.random()*2.4;
     g2.beginPath(); g2.arc(Math.random()*512,Math.random()*512,r,0,TAU); g2.fill();
   }
   const topTex=new THREE.CanvasTexture(tc); topTex.encoding=THREE.sRGBEncoding;
-  const top=new THREE.Mesh(new THREE.CylinderGeometry(STAGE_R-.55,STAGE_R-.55,.36,64),
+  topTex.anisotropy=renderer.capabilities.getMaxAnisotropy();
+  const top=new THREE.Mesh(new THREE.CylinderGeometry(STAGE_R-.55,STAGE_R-.55,.62,64),
     new THREE.MeshStandardMaterial({map:topTex,roughness:.72,metalness:0}));
-  top.position.y=-.18; top.receiveShadow=true; world.add(top);
+  top.position.y=-.31; top.receiveShadow=true; world.add(top);
 
   // scalloped crust
   const scallop=new THREE.SphereGeometry(1,11,8);
@@ -637,12 +641,12 @@ function makeLeafMesh(hex){
 (function buildMontBlanc(){
   // tart base under the cream
   const base=new THREE.Mesh(new THREE.CylinderGeometry(MB_R-.15,MB_R+.05,1.0,40), M('#E0B87E',.9));
-  base.position.y=.5; base.castShadow=true; base.receiveShadow=true; montblanc.add(base);
+  base.position.y=.35; base.castShadow=true; base.receiveShadow=true; montblanc.add(base);
   const paper=new THREE.Mesh(lathe([[MB_R-.1,0],[MB_R+.22,.2],[MB_R+.42,.62],[MB_R+.3,1.02],[MB_R-.05,1.05]],48), M('#F6E2C4',.85,{side:THREE.DoubleSide}));
   paper.position.y=.02; montblanc.add(paper);
 
   // whipped cream dome under strands
-  const dome=new THREE.Mesh(lathe([[0,3.55],[.9,3.4],[1.7,2.9],[2.3,2.1],[2.7,1.2],[2.9,.4],[2.95,0],[0,0]],36), M('#FFF7EA',.72));
+  const dome=new THREE.Mesh(lathe([[0,3.55],[.9,3.4],[1.7,2.9],[2.3,2.1],[2.7,1.2],[2.9,.4],[2.95,-.5],[0,-.5]],36), M('#FFF7EA',.72));
   dome.position.y=1.0; dome.castShadow=true; montblanc.add(dome);
 
   // marron cream strands
@@ -694,7 +698,7 @@ function makeLeafMesh(hex){
    ============================================================ */
 const player={
   g:new THREE.Group(), pos:new THREE.Vector3(0,0,8.4), vel:new THREE.Vector3(),
-  face:0, aim:new THREE.Vector3(0,0,-1), hp:3, inv:0, walk:0, throwT:0,
+  face:0, aim:new THREE.Vector3(0,0,-1), lock:null, hp:3, inv:0, walk:0, throwT:0,
   ammo:6, ammoF:6, cd:0, rapid:0, hurtFlash:0
 };
 let pArmR=null,pArmL=null,pBody=null,pHead=null,pHeldKuri=null,pLegL=null,pLegR=null,pScarfEnd=null;
@@ -779,6 +783,33 @@ function makeBlob(size){
 const playerBlob=makeBlob(1.7);
 playerBlob.position.set(player.pos.x,.09,player.pos.z);
 world.add(playerBlob);
+
+/* ---- aiming aids: a lock-on reticle and a dotted throw guide ---- */
+const lockRing=new THREE.Mesh(new THREE.TorusGeometry(.95,.075,8,30),
+  new THREE.MeshBasicMaterial({color:C('#FFE9A8'),transparent:true,opacity:.92,depthWrite:false}));
+lockRing.rotation.x=-Math.PI/2; lockRing.position.y=.14; lockRing.renderOrder=3;
+lockRing.visible=false; world.add(lockRing);
+const lockTicks=new THREE.Group(); lockTicks.position.y=.15; lockTicks.visible=false;
+(function(){
+  const tickMat=new THREE.MeshBasicMaterial({color:C('#FF9A3C'),transparent:true,opacity:.95,depthWrite:false});
+  const tickGeo=new THREE.ConeGeometry(.17,.34,3);
+  for(let i=0;i<4;i++){
+    const t=new THREE.Mesh(tickGeo,tickMat);
+    const a=i*Math.PI/2+Math.PI/4;
+    t.position.set(Math.cos(a)*1.25,0,Math.sin(a)*1.25);
+    t.rotation.set(Math.PI/2,0,-a+Math.PI/2);
+    t.renderOrder=3; lockTicks.add(t);
+  }
+})();
+world.add(lockTicks);
+
+const aimDots=[];
+for(let i=0;i<5;i++){
+  const d=new THREE.Mesh(new THREE.CircleGeometry(.185-i*.022,14),
+    new THREE.MeshBasicMaterial({color:C('#FFF4DC'),transparent:true,opacity:.62-i*.09,depthWrite:false}));
+  d.rotation.x=-Math.PI/2; d.position.y=.13; d.renderOrder=2; d.visible=false;
+  world.add(d); aimDots.push(d);
+}
 
 /* ============================================================
    7. enemies
@@ -939,8 +970,19 @@ function spawnEnemy(type, waveScale, angle, radius){
    ============================================================ */
 const shots=[];
 function throwKuri(charged){
-  const dir=player.aim.clone(); dir.y=0; dir.normalize();
   const big=!!charged;
+  const sp0=big?21:25;
+  const dir=player.aim.clone(); dir.y=0; dir.normalize();
+  // lead the locked target a little so a walking enemy still gets hit
+  const lk=player.lock;
+  if(lk && !lk.dead && lk.state!=='fall'){
+    const flight=lk.pos.distanceTo(player.pos)/sp0;
+    const toCake=new THREE.Vector3(-lk.pos.x,0,-lk.pos.z);
+    if(toCake.lengthSq()>.01) toCake.normalize().multiplyScalar(lk.def.speed*flight*.85);
+    else toCake.set(0,0,0);
+    const aimAt=lk.pos.clone().add(toCake).sub(player.pos); aimAt.y=0;
+    if(aimAt.lengthSq()>.04) dir.copy(aimAt).normalize();
+  }
   const m=new THREE.Mesh(KURI_GEO, big?KURI_MAT_BIG:KURI_MAT);
   m.scale.setScalar(big?1.25:.72); m.castShadow=true;
   const start=player.pos.clone().add(new THREE.Vector3(0,1.15,0)).add(dir.clone().multiplyScalar(.6));
@@ -1175,7 +1217,7 @@ function resetGame(){
   G.wave=0; G.score=0; G.kills=0; G.mbHP=G.mbMax; G.combo=0; G.comboT=0; G.breather=1.5; G.toSpawn=[]; G.shake=0;
   player.pos.set(0,0,8.4); player.vel.set(0,0,0); player.hp=3; player.inv=0;
   player.ammo=6; player.cd=0; player.rapid=0; player.face=Math.PI;
-  player.aim.set(0,0,-1);
+  player.aim.set(0,0,-1); rawAim.set(0,0,-1); player.lock=null;
   montblanc.scale.set(1,1,1);
   syncHUD();
 }
@@ -1217,6 +1259,8 @@ function gameOver(reason){
   stick.active=false; stick.x=stick.y=0;
   stickBase.style.opacity='0'; stickKnob.style.opacity='0';
   ui.chargeRing.style.opacity='0';
+  player.lock=null; lockRing.visible=false; lockTicks.visible=false;
+  for(const d of aimDots) d.visible=false;
   sfx.over();
   if(G.score>best){ best=G.score; try{ localStorage.setItem('mukikuri_best',String(best)); }catch(e){} }
   showBest();
@@ -1343,10 +1387,10 @@ function renderKeyHelp(){
   el('keyHelp').innerHTML = touch ? [
     '<div class="keyrow"><span class="k"><kbd>左</kbd></span><p>うごく<small>画面の左半分をドラッグでスティック</small></p></div>',
     '<div class="keyrow"><span class="k"><kbd>右</kbd></span><p>むき栗をなげる<small>右半分をタップ／長押しで大栗</small></p></div>',
-    '<div class="keyrow"><span class="k"><kbd>栗</kbd></span><p>栗は自動で補充<small>大栗は3コ消費・まわりも巻きこむ</small></p></div>'
+    '<div class="keyrow"><span class="k"><kbd>◎</kbd></span><p>ねらいは自動アシスト<small>いちばん近い敵にオレンジの照準がつきます</small></p></div>'
   ].join('') : [
     '<div class="keyrow"><span class="k"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><p>うごく<small>矢印キーでもOK</small></p></div>',
-    '<div class="keyrow"><span class="k"><kbd>マウス</kbd></span><p>ねらう<small>カーソルの方をむきます</small></p></div>',
+    '<div class="keyrow"><span class="k"><kbd>マウス</kbd></span><p>ねらう<small>カーソルの方の敵に自動でロックオンします</small></p></div>',
     '<div class="keyrow"><span class="k"><kbd>クリック</kbd><kbd>Space</kbd></span><p>むき栗をなげる<small>長押しで「大栗」・3コ消費でまわりも巻きこむ</small></p></div>',
     '<div class="keyrow"><span class="k"><kbd>Esc</kbd></span><p>ポーズ<small>Pキーでも</small></p></div>'
   ].join('');
@@ -1368,6 +1412,36 @@ function nearestEnemy(from,maxd){
     if(d<bd){ bd=d; b=e; }
   }
   return b;
+}
+
+/* ---- aim assist -------------------------------------------------
+   The raw stick/mouse direction only nominates a region; the assist
+   snaps the character onto the best enemy inside that region and keeps
+   it there (stickiness) so a target doesn't slip away mid-throw.      */
+const rawAim=new THREE.Vector3(0,0,-1), aTmp=new THREE.Vector3(), aBest=new THREE.Vector3();
+const ASSIST_CONE_MOUSE=1.15;   // ~66° either side of the cursor
+const ASSIST_CONE_AUTO=2.70;    // keyboard / touch: nearly all around
+function applyAimAssist(dt){
+  const cone = usingMouse ? ASSIST_CONE_MOUSE : ASSIST_CONE_AUTO;
+  let best=null, bestScore=Infinity;
+  for(const e of enemies){
+    if(e.dead||e.state==='fall') continue;
+    aTmp.copy(e.pos).sub(player.pos); aTmp.y=0;
+    const dist=aTmp.length();
+    if(dist<.5||dist>30) continue;
+    aTmp.divideScalar(dist);
+    const ang=Math.acos(clamp(aTmp.dot(rawAim),-1,1));
+    if(ang>cone) continue;
+    let score=ang*2.4+dist*.035;
+    if(player.lock===e) score-=.5;                    // stay locked on
+    if(dist<MB_R+6) score-=.35;                       // prefer the ones reaching the cake
+    if(score<bestScore){ bestScore=score; best=e; aBest.copy(aTmp); }
+  }
+  player.lock = best;
+  const want = best ? aBest : rawAim;
+  player.aim.lerp(want, Math.min(1, dt*20));
+  if(player.aim.lengthSq()<1e-4) player.aim.copy(want);
+  player.aim.y=0; player.aim.normalize();
 }
 
 function updatePlayer(dt){
@@ -1392,18 +1466,17 @@ function updatePlayer(dt){
   const rm=Math.hypot(player.pos.x,player.pos.z);
   if(rm<MB_R+.7){ const k=(MB_R+.7)/(rm||.001); player.pos.x*=k; player.pos.z*=k; }
 
-  // aim
-  if(!usingMouse){
-    const tgt=nearestEnemy(player.pos, 32);
-    if(tgt) player.aim.copy(tgt.pos).sub(player.pos).setY(0).normalize();
-    else if(mx*mx+mz*mz>0.01) player.aim.set(mx,0,mz).normalize();
-  } else {
+  // aim — raw input first, then the assist decides what we actually face
+  if(usingMouse){
     ray.setFromCamera(pointer,camera);
     if(ray.ray.intersectPlane(aimPlane,tmp2)){
       tmp2.sub(player.pos).setY(0);
-      if(tmp2.lengthSq()>.04) player.aim.copy(tmp2).normalize();
+      if(tmp2.lengthSq()>.04) rawAim.copy(tmp2).normalize();
     }
+  } else if(mx*mx+mz*mz>0.01){
+    rawAim.set(mx,0,mz).normalize();
   }
+  applyAimAssist(dt);
   const targetFace=Math.atan2(player.aim.x,player.aim.z);
   let diff=targetFace-player.face;
   while(diff>Math.PI) diff-=TAU; while(diff<-Math.PI) diff+=TAU;
@@ -1463,6 +1536,23 @@ function updatePlayer(dt){
 
   playerBlob.position.set(player.pos.x,.09,player.pos.z);
   playerBlob.material.opacity=.8;
+
+  // aiming aids
+  const lk=player.lock;
+  if(lk && !lk.dead){
+    const s=(lk.def.r+.5)/.95;
+    const pulse=1+Math.sin(G.time*8)*.05;
+    lockRing.visible=true; lockTicks.visible=true;
+    lockRing.position.set(lk.pos.x,.14,lk.pos.z); lockRing.scale.setScalar(s*pulse);
+    lockTicks.position.set(lk.pos.x,.15,lk.pos.z); lockTicks.scale.setScalar(s*pulse);
+    lockTicks.rotation.y+=dt*1.1;
+  } else { lockRing.visible=false; lockTicks.visible=false; }
+  for(let i=0;i<aimDots.length;i++){
+    const d=aimDots[i], gap=1.45+i*.92;
+    d.visible=true;
+    d.position.set(player.pos.x+player.aim.x*gap, .13, player.pos.z+player.aim.z*gap);
+    d.material.opacity=(.6-i*.085)*(charging?1:.62);
+  }
 }
 
 function updateEnemies(dt){
